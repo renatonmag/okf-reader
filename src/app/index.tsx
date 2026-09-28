@@ -66,7 +66,13 @@ export default function LibraryScreen() {
 
         <View style={styles.actions}>
           <Link href="/settings" asChild>
-            <Pressable style={[styles.button, { backgroundColor: theme.backgroundElement }]}>
+            {/* Flattened, not an array: Link clones this child, and expo-router
+                rejects an array style on a cloned element. */}
+            <Pressable
+              style={StyleSheet.flatten([
+                styles.button,
+                { backgroundColor: theme.backgroundElement },
+              ])}>
               <ThemedText type="smallBold">Display</ThemedText>
             </Pressable>
           </Link>
