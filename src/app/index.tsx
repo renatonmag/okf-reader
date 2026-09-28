@@ -7,14 +7,16 @@ import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { libraryQuery, type LibrarySort } from '@/db/queries/books';
 import type { LibraryEntry } from '@/db/types';
-import { useTheme } from '@/hooks/use-theme';
-import { removeBook } from '@/library/remove-book';
-import { pickAndImportBook } from '@/import/pick-book';
-import { UnsupportedFileError } from '@/import/import-book';
 import { NotImplementedError } from '@/formats/types';
+import { useTheme } from '@/hooks/use-theme';
+import { UnsupportedFileError } from '@/import/import-book';
+import { pickAndImportBook } from '@/import/pick-book';
+import { removeBook } from '@/library/remove-book';
 
 const SORTS: { id: LibrarySort; label: string }[] = [
   { id: 'recent', label: 'Recent' },
@@ -142,22 +144,17 @@ export default function LibraryScreen() {
 
           <View style={styles.actions}>
             <Link href="/settings" asChild>
-              {/* Flattened, not an array: Link clones this child, and expo-router
-                  rejects an array style on a cloned element. */}
-              <Pressable
-                style={StyleSheet.flatten([
-                  styles.button,
-                  { backgroundColor: theme.backgroundElement },
-                ])}>
-                <ThemedText type="smallBold">Display</ThemedText>
-              </Pressable>
+              <Button variant="secondary" className="flex-1">
+                <Text>Display</Text>
+              </Button>
             </Link>
-            <Pressable
+            <Button
+              variant="secondary"
+              className="flex-1"
               onPress={() => void onImport()}
-              disabled={importing}
-              style={[styles.button, { backgroundColor: theme.backgroundSelected }]}>
-              <ThemedText type="smallBold">{importing ? 'Importing…' : 'Import'}</ThemedText>
-            </Pressable>
+              disabled={importing}>
+              <Text>{importing ? 'Importing…' : 'Import'}</Text>
+            </Button>
           </View>
         </View>
       )}
@@ -292,12 +289,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   actions: { flexDirection: 'row', gap: Spacing.two },
-  button: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.two,
-  },
   grid: { padding: Spacing.three, gap: Spacing.four, flexGrow: 1 },
   row: { gap: Spacing.three },
   card: { flex: 1 / 3, gap: Spacing.half },
