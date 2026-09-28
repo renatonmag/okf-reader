@@ -10,7 +10,9 @@ import migrations from '@/db/migrations/migrations';
 import { Spacing } from '@/constants/theme';
 import { useSettingsStore } from '@/stores/settings';
 
-SplashScreen.preventAutoHideAsync();
+// Not awaited, and nothing to do if it rejects — the splash is cosmetic and the
+// screen renders either way.
+void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

@@ -4,16 +4,21 @@
  */
 
 import { randomUUID } from 'expo-crypto';
-import { Directory, File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 import { findBookByHash, insertBook } from '@/db/queries/books';
 import type { Book } from '@/db/types';
 import { DETECT_HEADER_BYTES, detectFormat } from '@/formats/detect';
 import { adapterFor } from '@/formats/registry';
-import type { BookFormat } from '@/formats/types';
+import type { BookFormat, ExtractContext } from '@/formats/types';
+import {
+  BOOKS_DIRECTORY,
+  COVERS_DIRECTORY,
+  deleteCoverFor,
+  ensureDirectory,
+} from '@/storage/paths';
 
-/** Where imported book files live. Inside app storage, so the app owns their lifetime. */
-export const BOOKS_DIRECTORY = new Directory(Paths.document, 'books');
+export { BOOKS_DIRECTORY };
 
 export class UnsupportedFileError extends Error {
   constructor(readonly fileName: string) {
@@ -26,10 +31,6 @@ export interface ImportResult {
   readonly book: Book;
   /** True when this file was already in the library and the existing row was reused. */
   readonly alreadyInLibrary: boolean;
-}
-
-function ensureBooksDirectory() {
-  if (!BOOKS_DIRECTORY.exists) BOOKS_DIRECTORY.create({ intermediates: true });
 }
 
 /** Reads just enough of the header to identify the format, not the whole file. */
@@ -51,7 +52,8 @@ function readHeader(file: File): Uint8Array {
  * never be what ends up in `filePath`.
  */
 export async function importBook(sourceUri: string): Promise<ImportResult> {
-  ensureBooksDirectory();
+  ensureDirectory(BOOKS_DIRECTORY);
+  ensureDirectory(COVERS_DIRECTORY);
 
   const source = new File(sourceUri);
   const sourceName = source.name;
@@ -76,7 +78,7 @@ export async function importBook(sourceUri: string): Promise<ImportResult> {
       return { book: existing, alreadyInLibrary: true };
     }
 
-    const metadata = await extractMetadata(format, destination.uri, sourceName);
+    const metadata = await extractMetadata(format, destination.uri, { bookId: id, fileName: sourceName });
 
     const book = await insertBook({
       id,
@@ -91,8 +93,10 @@ export async function importBook(sourceUri: string): Promise<ImportResult> {
 
     return { book, alreadyInLibrary: false };
   } catch (error) {
-    // Do not leave an orphan file behind when the import fails.
+    // Do not leave an orphan file behind when the import fails. The cover is named
+    // from the id, so an adapter that got far enough to write one leaves that too.
     if (destination.exists) destination.delete();
+    deleteCoverFor(id);
     throw error;
   }
 }
@@ -101,10 +105,10 @@ export async function importBook(sourceUri: string): Promise<ImportResult> {
  * Metadata, falling back to the filename for anything the format does not carry —
  * the user can edit the fields afterwards either way.
  */
-async function extractMetadata(format: BookFormat, uri: string, fileName: string) {
-  const metadata = await adapterFor(format).extractMetadata(uri);
+async function extractMetadata(format: BookFormat, uri: string, context: ExtractContext) {
+  const metadata = await adapterFor(format).extractMetadata(uri, context);
   return {
-    title: metadata.title.trim() || stripExtension(fileName),
+    title: metadata.title.trim() || stripExtension(context.fileName),
     author: metadata.author,
     coverPath: metadata.coverPath,
   };

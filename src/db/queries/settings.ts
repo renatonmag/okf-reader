@@ -70,3 +70,8 @@ export function resolveSettings(global: AppSettings, override: BookSettings | nu
     readingMode: override.readingMode ?? global.readingMode,
   };
 }
+
+/** Live-query form of `getBookSettings`, for screens that must react to an override change. */
+export function bookSettingsQuery(bookId: string) {
+  return db.select().from(bookSettings).where(eq(bookSettings.bookId, bookId)).limit(1);
+}

@@ -7,7 +7,7 @@ import { NotImplementedError, type BookAdapter } from '@/formats/types';
  */
 export const mobiAdapter: BookAdapter = {
   format: 'mobi',
-  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: true },
+  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: true, tocSource: 'file' },
 
   extractMetadata() {
     throw new NotImplementedError('mobi', 'extractMetadata');

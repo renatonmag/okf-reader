@@ -1,6 +1,7 @@
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,11 +9,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { getBook, touchBook } from '@/db/queries/books';
 import { getReadingState } from '@/db/queries/reading-state';
-import { getBookSettings, resolveSettings } from '@/db/queries/settings';
-import type { AppSettings, Book } from '@/db/types';
+import { bookSettingsQuery, resolveSettings } from '@/db/queries/settings';
+import type { Book } from '@/db/types';
 import { adapterFor } from '@/formats/registry';
-import { useReadingPosition } from '@/reader/use-reading-position';
 import { parseLocator, serializeLocator, startOf, type Locator } from '@/reader/locator';
+import { ReaderSurface } from '@/reader/renderers/reader-surface';
+import { useReadingPosition } from '@/reader/use-reading-position';
 import { useSettings } from '@/stores/settings';
 import { readerTheme } from '@/theme/reader-themes';
 
@@ -21,8 +23,14 @@ export default function ReaderScreen() {
   const globalSettings = useSettings();
 
   const [book, setBook] = useState<Book | null>(null);
-  const [settings, setSettings] = useState<AppSettings>(globalSettings);
   const [locator, setLocator] = useState<Locator | null>(null);
+
+  // Live rather than read once: the display sheet is a modal over this screen, so an
+  // override has to reach the mounted renderer. Keeping it out of the effect below
+  // also stops a global settings change from re-running the loader and resetting the
+  // locator to the last *saved* position, which would jump the reader backwards.
+  const { data: overrides } = useLiveQuery(bookSettingsQuery(id), [id]);
+  const settings = resolveSettings(globalSettings, overrides?.[0] ?? null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,14 +39,10 @@ export default function ReaderScreen() {
       const loaded = await getBook(id);
       if (!loaded || cancelled) return;
 
-      const [state, override] = await Promise.all([
-        getReadingState(id),
-        getBookSettings(id),
-      ]);
+      const state = await getReadingState(id);
       if (cancelled) return;
 
       setBook(loaded);
-      setSettings(resolveSettings(globalSettings, override));
       // A saved position that no longer parses drops the reader at the start
       // rather than failing to open the book at all.
       setLocator(
@@ -51,11 +55,16 @@ export default function ReaderScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id, globalSettings]);
+  }, [id]);
 
   // Saves on a debounce and flushes when the app backgrounds, so being killed
   // never costs more than a few seconds of reading.
   const { report } = useReadingPosition(id);
+
+  const onPosition = useCallback(
+    (next: Locator, progress: number) => report(serializeLocator(next), progress),
+    [report],
+  );
 
   if (!book || !locator) {
     return (
@@ -98,32 +107,41 @@ export default function ReaderScreen() {
               </ThemedText>
             </Pressable>
           </Link>
+          <Link href={`/book/${book.id}/display`} asChild>
+            <Pressable hitSlop={8}>
+              <ThemedText type="small" style={{ color: page.textSecondary }}>
+                Display
+              </ThemedText>
+            </Pressable>
+          </Link>
         </View>
       </View>
 
-      {/*
-        Where the rendered book goes. The surrounding machinery — resolved
-        settings, theme, locator, position saving — is real; only the renderer
-        for each format is still to be written.
-      */}
-      <Pressable
-        style={[styles.page, { paddingHorizontal: settings.margin }]}
-        onPress={() => report(serializeLocator(locator), 0)}>
-        <ThemedText
-          style={{
-            color: page.text,
-            fontSize: settings.fontSize,
-            lineHeight: settings.fontSize * settings.lineSpacing,
-          }}>
-          {book.title}
-        </ThemedText>
-        <ThemedText type="small" style={{ color: page.textSecondary }}>
-          {book.format.toUpperCase()} · {settings.readingMode === 'paged' ? 'Pages' : 'Scroll'}
-        </ThemedText>
-        <ThemedText type="small" style={{ color: page.textSecondary }}>
-          No renderer for this format yet.
-        </ThemedText>
-      </Pressable>
+      <ReaderSurface
+        book={book}
+        initialLocator={locator}
+        settings={settings}
+        theme={page}
+        onPosition={onPosition}
+        fallback={
+          <View style={[styles.page, { paddingHorizontal: settings.margin }]}>
+            <ThemedText
+              style={{
+                color: page.text,
+                fontSize: settings.fontSize,
+                lineHeight: settings.fontSize * settings.lineSpacing,
+              }}>
+              {book.title}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: page.textSecondary }}>
+              {book.format.toUpperCase()} · {settings.readingMode === 'paged' ? 'Pages' : 'Scroll'}
+            </ThemedText>
+            <ThemedText type="small" style={{ color: page.textSecondary }}>
+              No renderer for this format yet.
+            </ThemedText>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 }

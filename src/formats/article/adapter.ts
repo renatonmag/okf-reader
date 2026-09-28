@@ -6,7 +6,7 @@ import { NotImplementedError, type BookAdapter } from '@/formats/types';
  */
 export const articleAdapter: BookAdapter = {
   format: 'article',
-  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: false },
+  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: false, tocSource: 'file' },
 
   extractMetadata() {
     throw new NotImplementedError('article', 'extractMetadata');

@@ -24,6 +24,9 @@ export const Colors = {
   },
 } as const;
 
+// The two halves are identical today, and the intersection is what says they must stay
+// so: a colour is only nameable here if both palettes define it.
+// eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({

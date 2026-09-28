@@ -6,7 +6,7 @@ import { NotImplementedError, type BookAdapter } from '@/formats/types';
  */
 export const epubAdapter: BookAdapter = {
   format: 'epub',
-  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: true },
+  capabilities: { fontScaling: true, theming: true, scrollMode: true, toc: true, tocSource: 'file' },
 
   extractMetadata() {
     throw new NotImplementedError('epub', 'extractMetadata');

@@ -6,6 +6,7 @@ export default function BookLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="toc" options={{ title: 'Contents', presentation: 'modal' }} />
       <Stack.Screen name="search" options={{ title: 'Search', presentation: 'modal' }} />
+      <Stack.Screen name="display" options={{ title: 'Display', presentation: 'modal' }} />
     </Stack>
   );
 }

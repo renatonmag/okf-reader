@@ -77,7 +77,7 @@ export default function LibraryScreen() {
             </Pressable>
           </Link>
           <Pressable
-            onPress={onImport}
+            onPress={() => void onImport()}
             disabled={importing}
             style={[styles.button, { backgroundColor: theme.backgroundSelected }]}>
             <ThemedText type="smallBold">{importing ? 'Importing…' : 'Import'}</ThemedText>
