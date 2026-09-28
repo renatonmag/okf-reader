@@ -51,7 +51,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
-        <Stack.Screen name="index" options={{ title: 'Library' }} />
+        {/* The library draws its own top bar: it swaps for a selection bar on long press,
+            which a native header cannot do without stacking two bars. */}
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ title: 'Display' }} />
         <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
       </Stack>

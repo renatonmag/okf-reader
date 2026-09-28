@@ -67,7 +67,10 @@ export async function touchBook(id: string) {
     .where(eq(books.id, id));
 }
 
-/** Cascades to reading state, annotations and per-book settings. */
+/**
+ * Cascades to reading state, annotations, per-book settings and the TOC cache. The row
+ * only — the file and cover on disk are `library/remove-book.ts`'s job.
+ */
 export async function deleteBook(id: string) {
   await db.delete(books).where(eq(books.id, id));
 }
