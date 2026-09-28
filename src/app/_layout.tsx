@@ -1,13 +1,18 @@
+import '@/global.css';
+
+import { PortalHost } from '@rn-primitives/portal';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useUniwind } from 'uniwind';
 
 import { ThemedText } from '@/components/themed-text';
 import { db } from '@/db/client';
 import migrations from '@/db/migrations/migrations';
 import { Spacing } from '@/constants/theme';
+import { NAV_THEME } from '@/lib/theme';
 import { useSettingsStore } from '@/stores/settings';
 
 // Not awaited, and nothing to do if it rejects — the splash is cosmetic and the
@@ -15,7 +20,8 @@ import { useSettingsStore } from '@/stores/settings';
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  // Uniwind owns the active theme, so navigation chrome follows the same source as classNames.
+  const { theme } = useUniwind();
   const { success, error } = useMigrations(db, migrations);
   const loadSettings = useSettingsStore((state) => state.load);
   const settingsLoaded = useSettingsStore((state) => state.loaded);
@@ -49,7 +55,7 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
       <Stack>
         {/* The library draws its own top bar: it swaps for a selection bar on long press,
             which a native header cannot do without stacking two bars. */}
@@ -57,6 +63,8 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ title: 'Display' }} />
         <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
       </Stack>
+      {/* Where portalled surfaces (dialog, dropdown, tooltip) mount. Must be last. */}
+      <PortalHost />
     </ThemeProvider>
   );
 }
