@@ -56,6 +56,7 @@ describe('migrations', () => {
       'annotations',
       'app_settings',
       'book_settings',
+      'book_toc',
       'books',
       'reading_state',
     ]);
@@ -76,7 +77,7 @@ describe('migrations', () => {
     db.close();
   });
 
-  it('cascades a deleted book to its reading state, annotations and settings', () => {
+  it('cascades a deleted book to its reading state, annotations, settings and cached outline', () => {
     // Proves the foreign_keys pragma is doing something: without it every
     // ON DELETE CASCADE in the schema is silently inert and rows are orphaned.
     const db = migratedDatabase();
@@ -91,10 +92,14 @@ describe('migrations', () => {
       `INSERT INTO annotations (id, book_id, kind, locator_start) VALUES (?, ?, ?, ?)`,
     ).run('note-1', 'book-1', 'bookmark', 'epub:/6/2!/4/2/1:0');
     db.prepare(`INSERT INTO book_settings (book_id, font_size) VALUES (?, ?)`).run('book-1', 22);
+    db.prepare(`INSERT INTO book_toc (book_id, entries) VALUES (?, ?)`).run(
+      'book-1',
+      '[{"label":"Chapter 1","locator":"pdf:1#0","children":[]}]',
+    );
 
     db.prepare(`DELETE FROM books WHERE id = ?`).run('book-1');
 
-    for (const table of ['reading_state', 'annotations', 'book_settings']) {
+    for (const table of ['reading_state', 'annotations', 'book_settings', 'book_toc']) {
       const { count } = db.prepare(`SELECT count(*) AS count FROM ${table}`).get() as {
         count: number;
       };

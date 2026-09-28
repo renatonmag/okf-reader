@@ -27,6 +27,11 @@ offline-first access to anything already in the library.
 ## Conventions
 
 - TypeScript `strict: true`. No `any` — use `unknown` and narrow.
+- Lint is type-aware (`no-floating-promises`), because several dependencies pair an
+  async method with a sync twin under a name that looks synchronous —
+  `File.move` / `File.moveSync`. Await them, or mark a deliberate fire-and-forget
+  with `void`. An unawaited one reorders I/O and throws its rejection clear of the
+  surrounding `try`.
 - Database types are generated, never hand-written: locally from the Drizzle
   schema (`typeof books.$inferSelect`), and from the Supabase schema once sync
   exists. Never edit a generated types file.
@@ -143,6 +148,17 @@ pnpm typecheck          # tsc --noEmit
 pnpm lint
 ```
 
+**Never start a dev server without checking for a running one first.** A Metro
+bundler already bound to port 8081 makes a second `pnpm start` / `pnpm android`
+fail or silently attach to the wrong instance. Check before launching:
+
+```bash
+ps aux | grep -E "expo start|metro" | grep -v grep
+```
+
+If one is already running, use it — reload the app rather than starting another.
+Only kill an existing server when the user asks for it.
+
 ## Structure
 
 ```
@@ -163,7 +179,9 @@ src/
     queries/               # the only place SQL lives
   formats/                 # detect.ts, registry.ts, and one adapter per format
   import/                  # picker + the copy/hash/detect/extract pipeline
-  reader/                  # locators, position saving
+  reader/                  # locators, position saving, TOC jumps
+    renderers/             # one component per format, behind reader-surface.tsx
+  storage/                 # where book files and covers live on disk
   stores/                  # zustand settings cache over SQLite
   theme/                   # reader page themes (light/sepia/dark)
   sync/                    # empty seam for Supabase
@@ -178,6 +196,20 @@ src/
   source of truth; run `pnpm prebuild` after changing it.
 - **iOS cannot be built on the current Linux machine** — that needs a Mac or EAS
   Build. `ios/` is still generated so the config stays correct.
-- **Not built yet**: every format parser (each adapter throws
+- **PDF is the one format that works end to end.** It is built from three pieces
+  because no single library covers it: `react-native-pdf` (pdfium/PDFKit) renders,
+  pages and exposes the outline; `@cantoo/pdf-lib` reads title and author at import;
+  `@dariyd/react-native-pdf-page-image` renders page 1 as the cover. Two quirks of
+  react-native-pdf are load-bearing and documented at `src/reader/renderers/pdf-renderer.tsx`:
+  its `page` prop is an *initial* page (jumps go through the imperative `setPage`), and
+  `onPageChanged` fires before `onLoadComplete` (unreported, or it overwrites the saved
+  position with page 1).
+- **A PDF's outline is not in the file, as far as we can reach it** — pdfium only
+  exposes it through a mounted renderer. So `capabilities.tocSource` is `'renderer'` for
+  PDF: the reader harvests the outline on open and caches it in `book_toc`, and the
+  contents screen reads that cache instead of calling `extractToc`. `book_toc` is a
+  derived cache holding the whole tree as JSON in one row per book; the row's presence
+  distinguishes "never opened" from "no outline".
+- **Not built yet**: the EPUB, MOBI and article parsers (each adapter throws
   `NotImplementedError` naming itself), in-book full-text search, the iOS share
   extension target, and all of Supabase.

@@ -86,6 +86,28 @@ export const annotations = sqliteTable(
 );
 
 /**
+ * A book's outline, harvested once and cached so the contents list renders without
+ * reopening the file.
+ *
+ * One row per book holding the whole tree as JSON, rather than a row per entry: this
+ * is a derived cache, written whole and read whole, never queried by field or
+ * partially updated. The row's *presence* is load-bearing — it distinguishes "we have
+ * never looked" (no row) from "we looked, and this document has no outline"
+ * (`entries` = '[]'), which the contents screen has to say differently.
+ */
+export const bookToc = sqliteTable('book_toc', {
+  bookId: text('book_id')
+    .primaryKey()
+    .references(() => books.id, { onDelete: 'cascade' }),
+  /** JSON array of TocEntry. Plain text, not `{ mode: 'json' }`: a corrupt value should
+   *  be recoverable as "re-harvest", not throw out of the driver's row mapper. */
+  entries: text('entries').notNull(),
+  /** Bumped when TocEntry's shape changes, so a stale cache is re-harvested. */
+  version: integer('version').notNull().default(1),
+  harvestedAt: integer('harvested_at').notNull().default(now),
+});
+
+/**
  * Global display settings. Exactly one row, `id = 'global'` — a single-row table
  * keeps the read a plain query rather than key/value string parsing.
  */
@@ -124,6 +146,10 @@ export const booksRelations = relations(books, ({ one, many }) => ({
   settings: one(bookSettings, {
     fields: [books.id],
     references: [bookSettings.bookId],
+  }),
+  toc: one(bookToc, {
+    fields: [books.id],
+    references: [bookToc.bookId],
   }),
   annotations: many(annotations),
 }));

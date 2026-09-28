@@ -17,6 +17,21 @@ export interface FormatCapabilities {
   readonly scrollMode: boolean;
   /** Exposes a table of contents. */
   readonly toc: boolean;
+  /**
+   * Where that table of contents comes from. Most formats parse it out of the file
+   * (`'file'`), but pdfium only exposes a PDF's outline through a mounted renderer, so
+   * PDF harvests it on first open and caches it (`'renderer'`). Only meaningful when
+   * `toc` is true.
+   */
+  readonly tocSource: 'file' | 'renderer';
+}
+
+/** What the import pipeline knows about a file that the file itself does not. */
+export interface ExtractContext {
+  /** The `books` row id this file will be stored under. Covers are named from it. */
+  readonly bookId: string;
+  /** The name the file arrived with, for adapters that sanity-check a title against it. */
+  readonly fileName: string;
 }
 
 export interface BookMetadata {
@@ -39,9 +54,18 @@ export interface TocEntry {
 export interface BookAdapter {
   readonly format: BookFormat;
   readonly capabilities: FormatCapabilities;
-  /** Title, author and cover, read once at import time and then cached in SQLite. */
-  extractMetadata(filePath: string): Promise<BookMetadata>;
-  /** Nested table of contents. Returns an empty array for formats without one. */
+  /**
+   * Title, author and cover, read once at import time and then cached in SQLite.
+   *
+   * Should not throw: `importBook` treats a rejection as a failed import and deletes
+   * the copied file, so a file whose metadata cannot be read is better returned with an
+   * empty title — the pipeline then falls back to the filename.
+   */
+  extractMetadata(filePath: string, context: ExtractContext): Promise<BookMetadata>;
+  /**
+   * Nested table of contents. Returns an empty array for formats without one, and for
+   * formats whose `tocSource` is `'renderer'` — those are read from the cache instead.
+   */
   extractToc(filePath: string): Promise<readonly TocEntry[]>;
 }
 

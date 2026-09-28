@@ -105,6 +105,11 @@ const config: ExpoConfig = {
         imageWidth: 76,
       },
     ],
+    // The PDF renderer. blob-util is not imported by our code, but react-native-pdf
+    // imports it unconditionally, so both need linking. The pdf plugin only adds the
+    // Android `pickFirst libc++_shared.so` packaging rule that pdfium needs.
+    '@config-plugins/react-native-blob-util',
+    '@config-plugins/react-native-pdf',
   ],
 
   experiments: {
